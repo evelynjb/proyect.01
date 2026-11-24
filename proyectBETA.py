@@ -3,13 +3,44 @@ import os
 import re
 import pandas as pd
 import streamlit as st
+import openpyxl
 
-st.set_page_config(page_title="Dengue colombia")
+st.set_page_config(page_title="Dengue colombia", page_icon="", layout="wide")
 
 if "pagina" not in st.session_state: #Crea la página de inicio 
     st.session_state.pagina = "inicio"
 
+if "seccion" not in st.session_state:
+    st.session_state.seccion = "Inicio"
+
 codigo = ["234", "456", "675"]
+
+def guardar_usuario(nombre, cargo, usuario, contraseña):
+
+  libro = openpyxl.load_workbook("usuarios.xlsx")
+  hoja = libro.active
+  clave=contraseña
+  hoja.append([nombre, puesto, usuario, clave])
+  libro.save("usuarios.xlsx")
+
+def verificar_usuario(usuario, contraseña):
+
+    libro = openpyxl.load_workbook("usuarios.xlsx")
+    hoja = libro.active
+    clave=contraseña
+    for fila in hoja.iter_rows(min_row=2, values_only=True):
+        if fila[2] == usuario and fila[3] == clave:
+            return True
+    return False
+
+def existe_usuario(usuario):
+    
+    libro = openpyxl.load_workbook("usuarios.xlsx")
+    hoja = libro.active
+    for fila in hoja.iter_rows(min_row=2, values_only=True):
+        if fila[2] == usuario:
+            return True
+    return False
 
 if st.session_state.pagina == "inicio": #Página de inicio de sesión 
 
@@ -20,11 +51,14 @@ if st.session_state.pagina == "inicio": #Página de inicio de sesión
     contraseña = st.text_input("Contraseña", type="password") #Creamos una entrada que sera la contraseña 
 
     if st.button("Iniciar sesión"): #Creamos el boton para que inicie sesion 
+      if verificar_usuario(usuario, contraseña):
 
-        if usuario in st.session_state.usuarios and st.session_state.usuarios[usuario] == contraseña: #Si el usuario esta en el diccionario 
-            st.success("Bienvenido") 
-        else:
-            st.error("Usuario incorrecto")
+            st.session_state.pagina = "principal"
+            st.session_state.usuario_actual = usuario
+            st.rerun()
+
+      else:
+            st.error("Usuario o contraseña incorrectos")
 
     if st.button("Registrarse"):  #Creamos el boton para registrarse 
         st.session_state.pagina = "registro"
@@ -41,28 +75,24 @@ elif st.session_state.pagina == "registro": #Cuando se oprime este boton se va a
     contraseña = st.text_input("Crear contraseña", type="password")
 
     if st.button("Crear cuenta"):
-
-        if codigo_del_hospital in codigo:
-            if nombre != "" and nuevo_usuario != "" and contraseña != "":
-
-                if nuevo_usuario in st.state_session.usuarios:
-                    st.error("Ese nombre de usuario ya existe, elige otro.")
+       if codigo_del_hospital in codigo:
+            if nombre != "" and puesto != "" and nuevo_usuario != "" and contraseña != "":
+                if existe_usuario(nuevo_usuario):
+                    st.error("Este usuario ya existe")
                 else:
-                    st.session_state.usuarios[nuevo_usuario] = contraseña
-                    st.success("Cuenta creada, da clic a 'Volver' para iniciar sesión.")       
-            
-        else:
-            st.error("Código incorrecto")
+                    guardar_usuario(nombre, puesto, nuevo_usuario, contraseña)
+                    st.success("Cuenta creada correctamente")
+            else:
+                st.error("Completa todos los campos")
+    else:
+            st.error("Codigo del hospital incorrecto")
 
     if st.button("Volver"):
         st.session_state.pagina = "inicio"
         st.rerun()
 
-# --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config( page_title="Gestión de Pacientes", page_icon="", layout="wide")
- 
-# --- ESTILOS PERSONALIZADOS (AZUL NAVY Y VERDE COMPLEMENTARIO) ---
-st.markdown(
+elif st.session_state.pagina == "principal":
+   st.markdown(
     """
     <style>
     /* Fondo principal Azul Navy */
@@ -245,8 +275,8 @@ def cargar_y_ajustar_datos():
   except Exception:
     pass
   return df
- 
- 
+
+
 def guardar_datos(df):
   df = df[COLUMNAS_EXACTAS]
   df.to_excel(ARCHIVO_EXCEL, index=False)
@@ -474,4 +504,4 @@ elif opcion == "Nuevo Registro":
           f" **{siguiente_numero}**!"
       )
       st.session_state.form_n += 1  # formulario nuevo y vacío
-      st.rerun()
+      st.rerun() 
